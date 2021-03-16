@@ -120,7 +120,6 @@ void update(){
 }
 
 void render() {
-
 	renderRotozoom();
 }
 
