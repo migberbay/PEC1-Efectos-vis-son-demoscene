@@ -571,7 +571,7 @@ void TransformPts()
 		cur.vertices[i] = objrot * org.vertices[i];
 		// now project onto the screen
 		cur.vertices[i][2] += objpos[2];
-		cur.vertices[i][0] = SCREEN_HEIGHT * (cur.vertices[i][0] + objpos[0]) / cur.vertices[i][2] + (SCREEN_WIDTH / 2);
+		cur.vertices[i][0] = SCREEN_HEIGHT * (cur.vertices[i][0] + objpos[0]) / cur.vertices[i][2] + (SCREEN_WIDTH / 2); 
 		cur.vertices[i][1] = SCREEN_HEIGHT * (cur.vertices[i][1] + objpos[1]) / cur.vertices[i][2] + (SCREEN_HEIGHT /2);
 	}
 }
