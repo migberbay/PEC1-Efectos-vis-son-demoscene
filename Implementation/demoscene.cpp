@@ -14,6 +14,49 @@
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 480;
 
+// Helper classes
+
+class LTexture
+{
+public:
+    //Initializes variables
+    LTexture();
+
+    //Deallocates memory
+    ~LTexture();
+
+    //Loads image at specified path
+    bool loadFromFile(std::string path);
+
+    //Deallocates texture
+    void free();
+
+    //Set color modulation
+    void setColor(Uint8 red, Uint8 green, Uint8 blue);
+
+    //Set blending
+    void setBlendMode(SDL_BlendMode blending);
+
+    //Set alpha modulation
+    void setAlpha(Uint8 alpha);
+
+    //Renders texture at given point
+    void render(int x, int y, SDL_Rect* clip = NULL, double angle = 0.0, SDL_Point* center = NULL, SDL_RendererFlip flip = SDL_FLIP_NONE);
+
+    //Gets image dimensions
+    int getWidth();
+    int getHeight();
+
+private:
+    //The actual hardware texture
+    SDL_Texture* mTexture;
+
+    //Image dimensions
+    int mWidth;
+    int mHeight;
+
+};
+
 // The window we'll be rendering to
 SDL_Window* window = NULL;
 
@@ -26,18 +69,18 @@ int lastTime = 0, currentTime, deltaTime;
 float msFrame = 1 / (FPS / 1000.0f);
 
 // TRANSITION & DEMO HANDLER VARIABLES
-const int ALLOCATED_DEMO_TIME = 2500;
-const int ALLOCATED_TRANSITION_TIME = 1500;
+const int ALLOCATED_DEMO_TIMES[] = { 500, 500, 20000 };
+const int ALLOCATED_TRANSITION_TIME = 500;
 
-// 0->transition, 1->stars, 2->plasma
+// 0->transition, 1->stars, 2->plasma, 3 -> spaceships
 int current_demo = 1; 
 int prev_demo = 0;
 
 // milliseconds left until swap.
-int current_time_left = ALLOCATED_DEMO_TIME;
+int current_time_left = 2500;
 
 // number of effects in demoscene.
-int numDemos = 2;
+int numDemos = 3;
 
 // transition buffers
 unsigned char *transBuffer;
@@ -81,63 +124,39 @@ bool plasmaFirstInit = true;
 int Windowx1, Windowy1, Windowx2, Windowy2;
 long src1, src2;
 
-// THREE DIMENSIONS
- SDL_Surface* texture;
-//256 x 256 light patter buffer.
-unsigned char *light;
+// SPACESHIPS WITH SOUND.
+Mix_Music *imperial;
+const int BPM_MUSIC = 103;
+const float MSEG_BPM = (60000 / BPM_MUSIC);
+const int SPACESHIP_TTL = 6000;
+const int MAX_SPACESHIPS = 11; // The maximum numberof spaceships that will be active at any given moment
 
-// 16 bit buffer
-unsigned char *zbuffer;
+// the window renderer
+SDL_Renderer* spaceshipRenderer = NULL;
 
-//Lookup table
-unsigned char *lut;
+//Currently displayed texture
+LTexture spaceshipTexture;
 
-// SpaceShip properties.
-const float SPC_BASE_WIDTH = 60;
-const float SPC_BASE_HEIGHT = 10;
-const float SPC_LENGTH = 90;
+struct TSpaceship {
+    int start_x, start_y; // initial position of spaceship
+    int x, y;  // position of spaceship
+    int rotation; // rotation of the ship.
+    int TTL; // remaining Time to live. set to inactive on <= 0
+    bool active;
+};
 
+TSpaceship *spaceships;
 
-bool spaceFirstInit = true;
+//Flip type
+SDL_RendererFlip flipType = SDL_FLIP_NONE;
 
-// we need two structures, one that holds the position of all vertices
-// in object space,  and the other in screen space. the coords in world
-// space doesn't need to be stored
-struct
-{
-    VECTOR* vertices, * normals;
-} org, cur;
+int MusicCurrentTime;
+int MusicCurrentTimeBeat;
+int MusicCurrentBeat;
+int MusicPreviousBeat;
 
-// this structure contains all the relevant data for each poly
-typedef struct
-{
-    int p[4];  // pointer to the vertices
-    int tx[4]; // static X texture index
-    int ty[4]; // static Y texture index
-    VECTOR normal, centre;
-} POLY;
-
-POLY* polies;
-
-// count values
-int num_polies;
-int num_vertices;
-
-// one entry of the edge table
-typedef struct {
-    int x, px, py, tx, ty, z;
-} edge_data;
-
-// store two edges per horizontal line
-edge_data edge_table[SCREEN_HEIGHT][2];
-
-// remember the highest and the lowest point of the polygon
-int poly_minY, poly_maxY;
-
-// object position and orientation
-MATRIX objrot;
-VECTOR objpos;
-
+bool firstInitMusic = true;
+bool firstInitSpaceship = true;
 // FUNTION DECLARATIONS
 
 // General functions
@@ -147,6 +166,7 @@ void render();
 void close();
 void waitTime();
 void putpixel(SDL_Surface* surface, int x, int y, Uint32 pixel);
+
 
 // Demo control
 void demoControlTime(int deltaTime);
@@ -167,17 +187,13 @@ void updatePlasma();
 void renderPlasma();
 void buildPalettePlasma();
 
-// 3D
-void init3D();
-void update3D();
-void render3D();
+// Spaceships
+void initMusic();
+void updateMusic();
 
-void InitEdgeTable();
-void ScanEdge(VECTOR p1, int tx1, int ty1, int px1, int py1, VECTOR p2, int tx2, int ty2, int px2, int py2);
-void DrawSpan(int y, edge_data* p1, edge_data* p2);
-void DrawPolies();
-void init_object();
-void TransformPts();
+void initSpaceships();
+void updateSpaceships();
+void renderSpaceships();
 
 
 // FUNCTION METHODS
@@ -191,8 +207,15 @@ bool initSDL() {
         std::cout << "SDL could not initialize! SDL_Error: %s\n" << SDL_GetError();
         return false;
     }
+
+    //Set texture filtering to linear
+    if (!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"))
+    {
+        printf("Warning: Linear texture filtering not enabled!");
+    }
+
     //Create window
-    window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    window = SDL_CreateWindow("Demoscene", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
 
     if (window == NULL)
     {
@@ -201,6 +224,7 @@ bool initSDL() {
     }
     //Get window surface
     screenSurface = SDL_GetWindowSurface(window);
+
     return true;
 }
 
@@ -218,7 +242,8 @@ void update() {
         updatePlasma();
         break;
     case 3: 
-        update3D();
+        updateMusic();
+        updateSpaceships();
         break;
     }
 }
@@ -239,13 +264,13 @@ void render() {
         renderPlasma();
         break;
     case 3:
-        render3D();
+        renderSpaceships();
         break;
     }
 }
 
 void initCorrespondingModule() {
-    // 0->transition, 1->stars, 2->plasma
+    // 0->transition, 1->stars, 2->plasma, 3-> spaceships
     switch (current_demo) {
     case 0:
         initTransition();
@@ -257,7 +282,8 @@ void initCorrespondingModule() {
         initPlasma();
         break;
     case 3:
-        init3D();
+        initSpaceships();
+        initMusic();
         break;
     }
 }
@@ -271,17 +297,22 @@ void close() {
 
     free(transBuffer);
 
-    free(zbuffer);
-    free(org.vertices);
-    free(org.normals);
-    free(cur.vertices);
-    free(cur.normals);
-    free(polies);
+    delete[](spaceships);
 
-    //Destroy window
+    //Free loaded image
+    spaceshipTexture.free();
+
+    //Destroy window    
+    SDL_DestroyRenderer(spaceshipRenderer);
     SDL_DestroyWindow(window);
+
+    window = NULL;
+    spaceshipRenderer = NULL;
+    
     //Quit SDL subsystems
     SDL_Quit();
+    IMG_Quit();
+
 }
 
 void waitTime() {
@@ -337,6 +368,7 @@ void putpixel(SDL_Surface* surface, int x, int y, Uint32 pixel)
     }
 }
 
+
 // TRANSITION
 void demoControlTime(int deltaTime) {
     current_time_left -= deltaTime;
@@ -345,19 +377,19 @@ void demoControlTime(int deltaTime) {
         if (current_demo == 0) { // we change from transition to new effect.
             std::cout << "From Transition to effect,  ";
             if (prev_demo == numDemos) {// we are in the last demo, so we reset.
-                std::cout << "Last demo, ";
+                std::cout << "Last demo.";
                 current_demo = 1;
             }
             else {
-                std::cout << "Not last demo, ";
+                std::cout << "Not last demo. \n";
                 current_demo = prev_demo + 1;
             }
             prev_demo = 0;
-            current_time_left = ALLOCATED_DEMO_TIME;
+            current_time_left = ALLOCATED_DEMO_TIMES[current_demo-1];
         }
         else { // we change from effect to transition.
             prev_demo = current_demo;
-            std::cout << "From effect to Transition,  ";
+            std::cout << "From effect to Transition. \n";
             current_demo = 0;
             current_time_left = ALLOCATED_TRANSITION_TIME;
         }
@@ -426,6 +458,7 @@ void renderTransition() {
         }
     }
 }
+
 
 // STARS
 void initStars() {
@@ -564,426 +597,293 @@ void buildPalettePlasma() {
 
 }
 
-// 3D spaceships
-void init3D() {
 
-    if (spaceFirstInit) {
-        // Load Texture
-        SDL_Surface* temp = IMG_Load("spacecship.png");
-        if (temp == NULL) {
-            std::cout << "Image can be loaded! " << IMG_GetError();
+// SPACESHIPS CLASS FUNCTIONS
+
+LTexture::LTexture()
+{
+    //Initialize
+    mTexture = NULL;
+    mWidth = 40;
+    mHeight = 40;
+}
+
+LTexture::~LTexture()
+{
+    //Deallocate
+    free();
+}
+
+bool LTexture::loadFromFile(std::string path)
+{
+    //Get rid of preexisting texture
+    free();
+
+    //The final texture
+    SDL_Texture* newTexture = NULL;
+
+    //Load image at specified path
+    SDL_Surface* loadedSurface = IMG_Load(path.c_str());
+    if (loadedSurface == NULL)
+    {
+        printf("Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError());
+    }
+    else
+    {
+        //Color key image
+        SDL_SetColorKey(loadedSurface, SDL_TRUE, SDL_MapRGB(loadedSurface->format, 0, 0xFF, 0xFF));
+
+        //Create texture from surface pixels
+        newTexture = SDL_CreateTextureFromSurface(spaceshipRenderer, loadedSurface);
+        if (newTexture == NULL)
+        {
+            printf("Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError());
+        }
+        else
+        {
+            //Get image dimensions
+            mWidth = loadedSurface->w/5;
+            mHeight = loadedSurface->h/5;
+        }
+
+        //Get rid of old loaded surface
+        SDL_FreeSurface(loadedSurface);
+    }
+
+    //Return success
+    mTexture = newTexture;
+    return mTexture != NULL;
+}
+
+void LTexture::free()
+{
+    //Free texture if it exists
+    if (mTexture != NULL)
+    {
+        SDL_DestroyTexture(mTexture);
+        mTexture = NULL;
+        mWidth = 0;
+        mHeight = 0;
+    }
+}
+
+void LTexture::setColor(Uint8 red, Uint8 green, Uint8 blue)
+{
+    //Modulate texture rgb
+    SDL_SetTextureColorMod(mTexture, red, green, blue);
+}
+
+void LTexture::setBlendMode(SDL_BlendMode blending)
+{
+    //Set blending function
+    SDL_SetTextureBlendMode(mTexture, blending);
+}
+
+void LTexture::setAlpha(Uint8 alpha)
+{
+    //Modulate texture alpha
+    SDL_SetTextureAlphaMod(mTexture, alpha);
+}
+
+void LTexture::render(int x, int y, SDL_Rect* clip, double angle, SDL_Point* center, SDL_RendererFlip flip)
+{
+    //Set rendering space and render to screen
+    SDL_Rect renderQuad = { x, y, mWidth, mHeight };
+
+    //Set clip rendering dimensions
+    if (clip != NULL)
+    {
+        renderQuad.w = clip->w;
+        renderQuad.h = clip->h;
+    }
+
+    //Render to screen
+    SDL_RenderCopyEx(spaceshipRenderer, mTexture, clip, &renderQuad, angle, center, flip);
+}
+
+int LTexture::getWidth()
+{
+    return mWidth;
+}
+
+int LTexture::getHeight()
+{
+    return mHeight;
+}
+
+bool loadMedia()
+{
+    //Loading success flag
+    bool success = true;
+
+    //Load arrow
+    if (!spaceshipTexture.loadFromFile("../ship.png"))
+    {
+        printf("Failed to load arrow texture!\n");
+        success = false;
+    }
+
+    return success;
+}
+
+
+// SPACESHIP LOGIC
+
+void initSpaceships() {
+    std::cout << "Initializing Spaceship Module \n";
+    if (firstInitSpaceship) {
+        spaceships = new TSpaceship[MAX_SPACESHIPS];
+        //create renderer for window.
+        spaceshipRenderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+        if (spaceshipRenderer == NULL) {
+            printf("Renderer could not be created! SDL Error: %s\n", SDL_GetError());
             close();
             exit(1);
         }
-        texture = SDL_ConvertSurfaceFormat(temp, SDL_PIXELFORMAT_ARGB8888, 0);
+        else {
+            // initialize renderer as white.
+            std::cout << "assigned renderer successfully. \n";
+            SDL_SetRenderDrawColor(spaceshipRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+            int imgFlags = IMG_INIT_PNG;
 
-        // prepare the lighting
-        light = new unsigned char[256 * 256];
-        for (int j = 0; j < 256; j++)
-        {
-            for (int i = 0; i < 256; i++)
-            {
-                // calculate distance from the centre
-                int c = ((128 - i) * (128 - i) + (128 - j) * (128 - j)) / 35;
-                // check for overflow
-                if (c > 255) c = 255;
-                // store lumel
-                light[(j << 8) + i] = 255 - c;
+            if (!(IMG_Init(imgFlags) & imgFlags)) {
+                printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+                close();
+                exit(1);
             }
         }
-        // prepare 3D data
-        zbuffer = (unsigned short*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(unsigned short));
-        init_object(); // we generate the 3d object
-        spaceFirstInit = false;
-    }
-}
 
-void update3D() {
-    // clear the zbuffer
-    memset(zbuffer, 255, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(unsigned short));
+        if (!loadMedia()) {
+            printf("Failed to load media!\n");
+            close();
+            exit(1);
+        }
 
-    // set the spaceship' rotation 
-    objrot = rotX(rand()%45) * rotY(0) * rotZ(45);
+        std::cout << "loaded media. \n";
 
-    // and it's position --> depending on the beat we are on we will go faster or slower.
-    objpos = VECTOR(
-        48 * cos((float)currentTime / 1266.0f),
-        48 * sin((float)currentTime / 1424.0f),
-        200 + 80 * sin((float)currentTime / 1912.0f));
-    // rotate and project our points
-    TransformPts();
-}
+        int i = 0;
+        int heights[2] = { 20, SCREEN_HEIGHT - 20 };
+        int widths[2] = { 20, SCREEN_WIDTH - 20 };
 
-void render3D() {
+        for (i = 0; i < MAX_SPACESHIPS; i++) {
+            spaceships[i].active = false;
+            spaceships[i].TTL = SPACESHIP_TTL;
+            int a = widths[rand() % 2];
+            int b = heights[rand() % 2];
+            spaceships[i].start_x = a;
+            spaceships[i].start_y = b;
+            spaceships[i].x = a;
+            spaceships[i].y = b;
 
-    // clear the background
-    SDL_FillRect(screenSurface, NULL, 0);
-    // and draw the polygons
-    DrawPolies();
-}
-
-//clears all entries in the edge table
-void InitEdgeTable()
-{
-    for (int i = 0; i < SCREEN_HEIGHT; i++)
-    {
-        edge_table[i][0].x = -1;
-        edge_table[i][1].x = -1;
-    }
-    poly_minY = SCREEN_HEIGHT;
-    poly_maxY = -1;
-}
-
-/*
-* scan along one edge of the poly, i.e. interpolate all values and store
-* in the edge table
-*/
-void ScanEdge(VECTOR p1, int tx1, int ty1, int px1, int py1,
-    VECTOR p2, int tx2, int ty2, int px2, int py2)
-{
-    // we can't handle this case, so we recall the proc with reversed params
-    // saves having to swap all the vars, but it's not good practice
-    if (p2[1] < p1[1]) {
-        ScanEdge(p2, tx2, ty2, px2, py2, p1, tx1, ty1, px1, py1);
-        return;
-    }
-    // convert to fixed point
-    int x1 = (int)(p1[0] * 65536),
-        y1 = (int)(p1[1]),
-        z1 = (int)(p1[2] * 16),
-        x2 = (int)(p2[0] * 65536),
-        y2 = (int)(p2[1]),
-        z2 = (int)(p2[2] * 16);
-    // update the min and max of the current polygon
-    if (y1 < poly_minY) poly_minY = y1;
-    if (y2 > poly_maxY) poly_maxY = y2;
-    // compute deltas for interpolation
-    int dy = y2 - y1;
-    if (dy == 0) return;
-    int dx = (x2 - x1) / dy,                // assume 16.16 fixed point
-        dtx = (tx2 - tx1) / dy,
-        dty = (ty2 - ty1) / dy,
-        dpx = (px2 - px1) / dy,
-        dpy = (py2 - py1) / dy,
-        dz = (z2 - z1) / dy;              // probably 12.4, but doesn't matter
-                                          // interpolate along the edge
-    for (int y = y1; y < y2; y++)
-    {
-        // don't go out of the screen
-        if (y > (SCREEN_HEIGHT - 1)) return;
-        // only store if inside the screen, we should really clip
-        if (y >= 0)
-        {
-            // is first slot free?
-            if (edge_table[y][0].x == -1)
-            { // if so, use that
-                edge_table[y][0].x = x1;
-                edge_table[y][0].tx = tx1;
-                edge_table[y][0].ty = ty1;
-                edge_table[y][0].px = px1;
-                edge_table[y][0].py = py1;
-                edge_table[y][0].z = z1;
+            if (spaceships[i].x == 20) {
+                if (spaceships[i].y == 20) { // top left
+                    spaceships[i].rotation = 115;
+                }
+                else { // bottom left
+                    spaceships[i].rotation = 45;
+                }
             }
-            else { // otherwise use the other
-                edge_table[y][1].x = x1;
-                edge_table[y][1].tx = tx1;
-                edge_table[y][1].ty = ty1;
-                edge_table[y][1].px = px1;
-                edge_table[y][1].py = py1;
-                edge_table[y][1].z = z1;
+            else {
+                if (spaceships[i].y == 20) { // top right
+                    spaceships[i].rotation = 225;
+                }
+                else { // bottom right
+                    spaceships[i].rotation = 315;
+                }
             }
         }
-        // interpolate our values
-        x1 += dx;
-        px1 += dpx;
-        py1 += dpy;
-        tx1 += dtx;
-        ty1 += dty;
-        z1 += dz;
+        firstInitSpaceship = false;
     }
 }
 
-/*
-* draw a horizontal double textured span
-*/
-void DrawSpan(int y, edge_data* p1, edge_data* p2)
-{
-    // quick check, if facing back then draw span in the other direction,
-    // avoids having to swap all the vars... not a very elegant
-    if (p1->x > p2->x)
-    {
-        DrawSpan(y, p2, p1);
-        return;
-    };
-    // load starting points
-    int z1 = p1->z,
-        px1 = p1->px,
-        py1 = p1->py,
-        tx1 = p1->tx,
-        ty1 = p1->ty,
-        x1 = p1->x >> 16,
-        x2 = p2->x >> 16;
-    // check if it's inside the screen
-    if ((x1 > (SCREEN_WIDTH - 1)) || (x2 < 0)) return;
-    // compute deltas for interpolation
-    int dx = x2 - x1;
-    if (dx == 0) return;
-    int dtx = (p2->tx - p1->tx) / dx,  // assume 16.16 fixed point
-        dty = (p2->ty - p1->ty) / dx,
-        dpx = (p2->px - p1->px) / dx,
-        dpy = (p2->py - p1->py) / dx,
-        dz = (p2->z - p1->z) / dx;
-
-    // setup the offsets in the buffers
-    Uint8* dst;
-    Uint8* initbuffer = (Uint8*)screenSurface->pixels;
-    int bpp = screenSurface->format->BytesPerPixel;
-    Uint8* imagebuffer = (Uint8*)texture->pixels;
-    int bppImage = texture->format->BytesPerPixel;
-
-    // get destination offset in buffer
-    long offs = y * SCREEN_WIDTH + x1;
-    // loop for all pixels concerned
-    for (int i = x1; i < x2; i++)
-    {
-        if (i > (SCREEN_WIDTH - 1)) return;
-        // check z buffer
-        if (i >= 0) if (z1 < zbuffer[offs])
-        {
-            // if visible load the texel from the translated texture
-            Uint8* p = (Uint8*)imagebuffer + ((ty1 >> 16) & 0xff) * texture->pitch + ((tx1 >> 16) & 0xFF) * bppImage;
-            SDL_Color ColorTexture;
-            SDL_GetRGB(*(Uint32*)(p), texture->format, &ColorTexture.r, &ColorTexture.g, &ColorTexture.b);
-            // and the texel from the light map
-            unsigned char LightFactor = light[((py1 >> 8) & 0xff00) + ((px1 >> 16) & 0xff)];
-            // mix them together, and store
-            int ColorR = (ColorTexture.r + LightFactor);
-            if (ColorR > 255)
-                ColorR = 255;
-            int ColorG = (ColorTexture.g + LightFactor);
-            if (ColorG > 255)
-                ColorG = 255;
-            int ColorB = (ColorTexture.b + LightFactor);
-            if (ColorB > 255)
-                ColorB = 255;
-            Uint32 resultColor = 0xFF000000 | (ColorR << 16) | (ColorG << 8) | ColorB;
-            dst = initbuffer + y * screenSurface->pitch + i * bpp;
-            *(Uint32*)dst = resultColor;
-            // and update the zbuffer
-            zbuffer[offs] = z1;
-        }
-        // interpolate our values
-        px1 += dpx;
-        py1 += dpy;
-        tx1 += dtx;
-        ty1 += dty;
-        z1 += dz;
-        // and find next pixel
-        offs++;
-    }
-}
-
-/*
-* cull and draw the visible polies
-*/
-void DrawPolies()
-{
-    int i;
-    for (int n = 0; n < num_polies; n++)
-    {
-        // rotate the centre and normal of the poly to check if it is actually visible.
-        VECTOR ncent = objrot * polies[n].centre,
-            nnorm = objrot * polies[n].normal;
-
-        // calculate the dot product, and check it's sign
-        if ((ncent[0] + objpos[0]) * nnorm[0]
-            + (ncent[1] + objpos[1]) * nnorm[1]
-            + (ncent[2] + objpos[2]) * nnorm[2] < 0)
-        {
-            // the polygon is visible, so setup the edge table
-            InitEdgeTable();
-            // process all our edges
-            for (i = 0; i < 4; i++)
-            {
-                ScanEdge(
-                    // the vertex in screen space
-                    cur.vertices[polies[n].p[i]],
-                    // the static texture coordinates
-                    polies[n].tx[i], polies[n].ty[i],
-                    // the dynamic text coords computed with the normals
-                    (int)(65536 * (128 + 127 * cur.normals[polies[n].p[i]][0])),
-                    (int)(65536 * (128 + 127 * cur.normals[polies[n].p[i]][1])),
-                    // second vertex in screen space
-                    cur.vertices[polies[n].p[(i + 1) & 3]],
-                    // static text coords
-                    polies[n].tx[(i + 1) & 3], polies[n].ty[(i + 1) & 3],
-                    // dynamic texture coords
-                    (int)(65536 * (128 + 127 * cur.normals[polies[n].p[(i + 1) & 3]][0])),
-                    (int)(65536 * (128 + 127 * cur.normals[polies[n].p[(i + 1) & 3]][1]))
-                );
+void updateSpaceships() {
+    for (int i = 0; i < MAX_SPACESHIPS; i++) {
+        if (spaceships[i].active) {
+            spaceships[i].TTL -= deltaTime;
+            if (spaceships[i].TTL <= 0) {
+                std::cout << "reset spaceship ";
+                spaceships[i].active = false;
+                spaceships[i].x = spaceships[i].start_x;
+                spaceships[i].y = spaceships[i].start_y;
             }
-            // quick clipping
-            if (poly_minY < 0) poly_minY = 0;
-            if (poly_maxY > SCREEN_HEIGHT) poly_maxY = SCREEN_HEIGHT;
-            // do we have to draw anything?
-            if ((poly_minY < poly_maxY) && (poly_maxY > 0) && (poly_minY < SCREEN_HEIGHT))
-            {
-                // if so just draw relevant lines
-                for (i = poly_minY; i < poly_maxY; i++)
-                {
-                    DrawSpan(i, &edge_table[i][0], &edge_table[i][1]);
+            else {
+                switch (spaceships[i].rotation) {
+                case 45:
+                    spaceships[i].x++;
+                    spaceships[i].y--;
+                    break;
+                case 115:
+                    spaceships[i].x++;
+                    spaceships[i].y++;
+                    break;
+                case 225:
+                    spaceships[i].x--;
+                    spaceships[i].y--;
+                    break;
+                case 315:
+                    spaceships[i].x--;
+                    spaceships[i].y++;
+                    break;
                 }
             }
         }
     }
 }
 
-/*
-* generate a Spaceship object
-*/
-void init_object()
-{
-    // allocate necessary memory for points and their normals
-    num_vertices = 5;
-    org.vertices = new VECTOR[num_vertices];
-    cur.vertices = new VECTOR[num_vertices];
-    org.normals = new VECTOR[num_vertices];
-    cur.normals = new VECTOR[num_vertices];
-    int i, j, k = 0;
-    //starting at the top of the "pyramid" we move LEGNTH to the back and half BASE_WIDTH to each side then half BASE_HEIGHT up and down
-    
-    // top of the pyramid
-    org.vertices[0] = VECTOR(0, 0, 0);
+void renderSpaceships() {
+    //Clear screen
+    SDL_SetRenderDrawColor(spaceshipRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+    SDL_RenderClear(spaceshipRenderer);
 
-    // base points left
-    org.vertices[1] = VECTOR(-SPC_BASE_WIDTH / 2, SPC_LENGTH, -SPC_BASE_HEIGHT / 2);
-    org.vertices[2] = VECTOR(-SPC_BASE_WIDTH / 2, SPC_LENGTH, SPC_BASE_HEIGHT / 2);
-   
-    // base points right
-    org.vertices[3] = VECTOR(SPC_BASE_WIDTH / 2, SPC_LENGTH, -SPC_BASE_HEIGHT / 2);
-    org.vertices[4] = VECTOR(SPC_BASE_WIDTH / 2, SPC_LENGTH, SPC_BASE_HEIGHT / 2);
-    
-    VECTOR center = VECTOR(0, SPC_LENGTH / 2, 0);
-    // normals
-    for (i = 0; i < 5; i++) {
-        org.normals[i] = normalize(org.vertices[i] - center);
+    for (int i = 0; i < MAX_SPACESHIPS; i++) {
+        TSpaceship s = spaceships[i];
+        if (spaceships[i].active) {
+            spaceshipTexture.render(spaceships[i].x, spaceships[i].y, NULL, spaceships[i].rotation, NULL, SDL_FLIP_HORIZONTAL);
+        }
     }
 
-    // now initialize the polygons
-    num_polies = 5;
-    polies = new POLY[num_polies];
-    for (i = 0; i < num_polies; i++) {
-        POLY& P = polies[i];
-        
-        // setup the pointers to the 4 concerned vertices
-        switch (i) {
-        case 0:
-            // BASE
-            P.p[0] = 1;
-            P.p[1] = 2;
-            P.p[2] = 3;
-            P.p[3] = 4;
+    SDL_RenderPresent(spaceshipRenderer);
+}
 
-            break;
 
-        case 1:
-            // LEFT Tri
-            P.p[0] = 4;
-            P.p[1] = 3;
-            P.p[2] = 0;
-            P.p[3] = NULL;
-            break;
-
-        case 2:
-            // LEFT Tri
-            P.p[0] = 2;
-            P.p[1] = 1;
-            P.p[2] = 0;
-            P.p[3] = NULL;
-            break;
-
-        case 3:
-            P.p[0] = 2;
-            P.p[1] = 4;
-            P.p[2] = 0;
-            P.p[3] = NULL;
-            break;
-
-        case 4:
-            P.p[0] = 1;
-            P.p[1] = 3;
-            P.p[2] = 0;
-            P.p[3] = NULL;
-            break;
+void initMusic() {
+    std::cout << "Initializing Music Module \n";
+    if (firstInitMusic) {
+        Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
+        Mix_Init(MIX_INIT_OGG);
+        imperial = Mix_LoadMUS("../imperial.ogg");
+        if (!imperial) {
+            std::cout << "Error loading Music: " << Mix_GetError() << std::endl;
+            close();
+            exit(1);
         }
-
-        int SLICES = 4;
-        int SPANS = 2;
-
-        // now compute the static texture refs (X)
-        P.tx[0] = (i * 512 / SLICES) << 16;
-        P.tx[1] = (i * 512 / SLICES) << 16;
-        P.tx[3] = ((i + 1) * 512 / SLICES) << 16;
-        P.tx[2] = ((i + 1) * 512 / SLICES) << 16;
-
-        // now compute the static texture refs (Y)
-        P.ty[0] = (j * 512 / SPANS) << 16;
-        P.ty[1] = ((j + 1) * 512 / SPANS) << 16;
-        P.ty[3] = (j * 512 / SPANS) << 16;
-        P.ty[2] = ((j + 1) * 512 / SPANS) << 16;
-
-
-        // get the normalized diagonals
-        if (i == 0) {
-            VECTOR d1 = normalize(org.vertices[P.p[2]] - org.vertices[P.p[0]]);
-            VECTOR d2 = normalize(org.vertices[P.p[3]] - org.vertices[P.p[1]]);
-
-            // and their dot product
-            VECTOR temp = VECTOR(d1[1] * d2[2] - d1[2] * d2[1],
-                d1[2] * d2[0] - d1[0] * d2[2],
-                d1[0] * d2[1] - d1[1] * d2[0]);
-            // normalize that and we get the face's normal
-            P.normal = normalize(temp);
-        }
-        else {
-            VECTOR face_center = (org.vertices[P.p[0]] + org.vertices[P.p[1]] + org.vertices[P.p[2]]);
-            face_center[0] = face_center[0] / 3;
-            face_center[1] = face_center[1] / 3;
-            face_center[2] = face_center[2] / 3;
-            P.normal = normalize(face_center - center);
-        }
-        
-
-        // the centre of the face is just the average of the 3/4 corners
-        // we could use this for depth sorting
-        VECTOR temp = org.vertices[P.p[0]] + org.vertices[P.p[1]] + org.vertices[P.p[2]];
-        if (i == 0) {
-            temp = temp + org.vertices[P.p[3]];
-            P.centre = VECTOR(temp[0] * 0.25, temp[1] * 0.25, temp[2] * 0.25);
-        }
-        else {
-            P.centre = VECTOR(temp[0] * 0.33, temp[1] * 0.33, temp[2] * 0.33);
-        }
+        Mix_PlayMusic(imperial, 0);
+        MusicCurrentTime = 0;
+        MusicCurrentTimeBeat = 0;
+        MusicCurrentBeat = 0;
+        MusicPreviousBeat = -1;
+        firstInitMusic = false;
     }
 }
 
-/*
-* rotate and project all vertices, and just rotate point normals
-*/
-void TransformPts()
-{
-    for (int i = 0; i < num_vertices; i++)
-    {
-        // perform rotation
-        cur.normals[i] = objrot * org.normals[i];
-        cur.vertices[i] = objrot * org.vertices[i];
-        // now project onto the screen
-        cur.vertices[i][2] += objpos[2];
-        cur.vertices[i][0] = SCREEN_HEIGHT * (cur.vertices[i][0] + objpos[0]) / cur.vertices[i][2] + (SCREEN_WIDTH / 2);
-        cur.vertices[i][1] = SCREEN_HEIGHT * (cur.vertices[i][1] + objpos[1]) / cur.vertices[i][2] + (SCREEN_HEIGHT / 2);
+void updateMusic(){
+    MusicCurrentTime += deltaTime;
+    MusicCurrentTimeBeat += deltaTime;
+    MusicPreviousBeat = MusicCurrentBeat;
+    if (MusicCurrentTimeBeat >= MSEG_BPM) {
+        std::cout << "New beat \n";
+        MusicCurrentTimeBeat = 0;
+        MusicCurrentBeat++;
+        int i;
+        for (i= 0; i < MAX_SPACESHIPS; i++){
+            if (!spaceships[i].active) {
+                std::cout << "activated new spaceship \n ";
+                spaceships[i].active = true;
+                break;
+            }
+        }
     }
 }
-
 
 int main(int argc, char* args[])
 {
@@ -997,7 +897,6 @@ int main(int argc, char* args[])
     {
         //Modules initialization
         initCorrespondingModule();
-        IMG_Init(IMG_INIT_PNG);
 
         //Main loop flag
         bool quit = false;

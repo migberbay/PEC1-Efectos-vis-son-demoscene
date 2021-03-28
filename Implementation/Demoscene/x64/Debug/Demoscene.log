@@ -1,17 +1,17 @@
 ﻿  demoscene.cpp
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(34,11): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(34,24): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(34,37): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(35,11): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(35,24): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(35,37): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(36,11): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(36,24): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\matrix.h(36,37): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\demoscene.cpp(307,70): warning C4305: '=': truncamiento de 'unsigned int' a 'unsigned char'
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\demoscene.cpp(307,60): warning C4309: '=': truncamiento de valor constante
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\demoscene.cpp(322,77): warning C4305: '=': truncamiento de 'unsigned int' a 'unsigned char'
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\demoscene.cpp(322,67): warning C4309: '=': truncamiento de valor constante
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\demoscene.cpp(328,79): warning C4305: '=': truncamiento de 'unsigned int' a 'unsigned char'
-C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\demoscene.cpp(328,69): warning C4309: '=': truncamiento de valor constante
-  Demoscene.vcxproj -> C:\Users\elkek\Desktop\Master\Efectos visuales y Sonoros\PEC 1 Demoscene\Implementation\Demoscene\x64\Debug\Demoscene.exe
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(34,11): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(34,24): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(34,37): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(35,11): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(35,24): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(35,37): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(36,11): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(36,24): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\matrix.h(36,37): warning C4244: '=': conversión de 'const double' a 'float'; posible pérdida de datos
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\demoscene.cpp(423,70): warning C4305: '=': truncamiento de 'unsigned int' a 'unsigned char'
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\demoscene.cpp(423,60): warning C4309: '=': truncamiento de valor constante
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\demoscene.cpp(438,77): warning C4305: '=': truncamiento de 'unsigned int' a 'unsigned char'
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\demoscene.cpp(438,67): warning C4309: '=': truncamiento de valor constante
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\demoscene.cpp(444,79): warning C4305: '=': truncamiento de 'unsigned int' a 'unsigned char'
+C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\demoscene.cpp(444,69): warning C4309: '=': truncamiento de valor constante
+  Demoscene.vcxproj -> C:\Users\Magic Mike\Desktop\Master\Efectos visuales Y Sonoros\PEC1-Efectos-vis-son-demoscene\Implementation\Demoscene\x64\Debug\Demoscene.exe
